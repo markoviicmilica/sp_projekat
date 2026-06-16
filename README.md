@@ -23,11 +23,23 @@ streamlit run app/streamlit_app.py
 ## Struktura
 ```
 SPPROJEKAT/
-├── app/streamlit_app.py
+├── app/
+│   └── streamlit_app.py
+├── data/
+│   ├── raw/
+│   │   └── matches.csv
+│   └── processed/
+│       └── df_final.csv
 ├── models/
+│   ├── final_model.pkl
+│   ├── scaler.pkl
+│   ├── label_encoder.pkl
+│   ├── le_home.pkl
+│   └── le_away.pkl
 ├── projekat.ipynb
 ├── requirements.txt
-└── README.md
+├── README.md
+└── .gitignore
 ```
 
 ## Tehnologije
