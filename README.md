@@ -1,18 +1,28 @@
-# ⚽ SP 2026 - Predviđanje ishoda utakmice
+# ⚽ Predviđanje ishoda utakmica Svetskog prvenstva
 
 ## Opis
-Model mašinskog učenja za predviđanje ishoda fudbalskih utakmica na Svetskom prvenstvu 2026. Klasifikuje utakmicu u jednu od tri kategorije: pobeda domaćina, nerešeno ili pobeda gosta.
+Model mašinskog učenja za predviđanje ishoda utakmica Svetskog prvenstva na osnovu istorijskih podataka, Elo rejtinga i statističkih pokazatelja forme reprezentacija. Klasifikuje utakmicu u jednu od tri kategorije: pobeda domaćina, nerešeno ili pobeda gosta.
+
+## Performanse 
+
+| Model | Accuracy | Draw Precision | Draw Recall | Draw F1 | Home Recall | Away Recall |
+|---------|---------:|---------:|---------:|---------:|---------:|---------:|
+| Logistic Regression | 0.620 | 0.000 | 0.000 | 0.000 | 0.887 | 0.448 |
+| Decision Tree | 0.524 | 0.250 | 0.238 | 0.244 | 0.660 | 0.418 |
+| Random Forest | 0.568 | 0.288 | 0.500 | 0.365 | 0.596 | 0.552 |
+| XGBoost | 0.604 | 0.417 | 0.119 | 0.185 | 0.830 | 0.433 |
+
+Napomena: Prikazani rezultati predstavljaju performanse osnovnih modela pre dodatne optimizacije hiperparametara.
 
 ## Najbolji model
-Logistička regresija sa težinom 1.7 za klasu nerešenog ishoda
 
-## Performanse
-| Model | Tačnost |
-|-------|---------|
-| Logistic Regression | 60.80% |
-| XGBoost | 60.00% |
-| Random Forest | 59.60% |
-| Decision Tree | 54.00% |
+Za finalni model izabran je optimizovani Random Forest zbog
+najuravnoteženijih performansi između sve tri klase
+(pobeda domaćina, nerešeno i pobeda gosta).
+
+Iako u osnovi Logistic Regression ostvaruje nešto veću
+ukupnu tačnost, Random Forest značajno bolje
+prepoznaje nerešene rezultate.
 
 ## Pokretanje
 ```bash
@@ -24,10 +34,12 @@ streamlit run app/streamlit_app.py
 ```
 SPPROJEKAT/
 ├── app/
-│   └── streamlit_app.py
+│   ├── streamlit_app.py
+│   └── pitch.jpg
 ├── data/
 │   ├── raw/
-│   │   └── matches.csv
+│   │   ├── matches.csv
+│   │   └── eloratings.csv
 │   └── processed/
 │       └── df_final.csv
 ├── models/
@@ -43,7 +55,7 @@ SPPROJEKAT/
 ```
 
 ## Tehnologije
-Python, Scikit-learn, XGBoost, Streamlit, Pandas, NumPy
+Python, Pandas, NumPy, Scikit-learn, XGBoost, Streamlit, Joblib, Matplotlib
 
 ## Autor
 Milica Marković RA193/2023

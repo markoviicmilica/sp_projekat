@@ -4,15 +4,8 @@ import pandas as pd
 import numpy as np
 import base64
 
-# ============================================================
-# KONFIGURACIJA STRANICE
-# ============================================================
 
 st.set_page_config(page_title="SP 2026 - Predviđanje", page_icon="⚽")
-
-# ============================================================
-# CUSTOM CSS
-# ============================================================
 
 try:
     with open('app/pitch.jpg', 'rb') as f:
@@ -376,10 +369,7 @@ except:
 
 st.markdown(bg_style, unsafe_allow_html=True)
 
-# ============================================================
 # UČITAVANJE MODELA
-# ============================================================
-
 @st.cache_resource
 def load_model():
     model = joblib.load('models/final_model.pkl')
@@ -399,10 +389,95 @@ def load_data():
 
 df = load_data()
 
-# ============================================================
-# TIMOVI
-# ============================================================
+# Elo
+@st.cache_data
+def compute_elo_history():
+    url_results = "https://raw.githubusercontent.com/martj42/international_results/master/results.csv"
+    df_results = pd.read_csv(url_results)
+    df_results['date'] = pd.to_datetime(df_results['date'])
+    df_results = df_results.sort_values('date').reset_index(drop=True)
 
+    K = 20
+    HOME_ADV = 100
+    elo = {}
+    elo_history = []
+
+    def get_elo(team):
+        return elo.get(team, 1500.0)
+
+    for row in df_results.itertuples():
+        home_t, away_t = row.home_team, row.away_team
+        home_score, away_score = row.home_score, row.away_score
+        date = row.date
+
+        elo_home, elo_away = get_elo(home_t), get_elo(away_t)
+        expected_home = 1 / (1 + 10 ** ((elo_away - (elo_home + HOME_ADV)) / 400))
+
+        if home_score > away_score:
+            actual_home = 1.0
+        elif home_score == away_score:
+            actual_home = 0.5
+        else:
+            actual_home = 0.0
+
+        new_elo_home = elo_home + K * (actual_home - expected_home)
+        new_elo_away = elo_away + K * ((1 - actual_home) - (1 - expected_home))
+        elo[home_t] = new_elo_home
+        elo[away_t] = new_elo_away
+        elo_history.append((home_t, date, new_elo_home))
+        elo_history.append((away_t, date, new_elo_away))
+
+    df_elo = pd.DataFrame(elo_history, columns=['team_name', 'date', 'elo']).sort_values('date')
+    elo_by_team_ = {team: g for team, g in df_elo.groupby('team_name')}
+    return elo_by_team_, df_results
+
+elo_by_team, df_results_raw = compute_elo_history()
+
+# Mapiranje imena timova
+team_name_map = {
+    'South Korea': 'South Korea',
+    'IR Iran': 'Iran',
+    'United States': 'United States',
+}
+
+def get_current_elo(team_name):
+    mapped = team_name_map.get(team_name, team_name)
+    g = elo_by_team.get(mapped)
+    if g is None or len(g) == 0:
+        return 1500.0
+    return g.iloc[-1]['elo']
+
+def get_fifa_rank_diff(home_team, away_team):
+    return get_current_elo(home_team) - get_current_elo(away_team)
+
+# Prijateljske
+@st.cache_data
+def load_friendly_data():
+    return df_results_raw[df_results_raw['tournament'] == 'Friendly'].copy()
+
+df_friendly = load_friendly_data()
+
+team_mapping = {
+    'USA': 'United States', 'United States': 'United States',
+    'Korea Republic': 'South Korea', 'South Korea': 'South Korea',
+    'IR Iran': 'Iran', 'Iran': 'Iran',
+}
+
+def get_form(team_name, in_tournament_override=0.0, n_matches=3):
+    mapped_team = team_mapping.get(team_name, team_name)
+
+    home_m = df_friendly[df_friendly['home_team'] == mapped_team].copy()
+    home_m['goals'] = home_m['home_score']
+    away_m = df_friendly[df_friendly['away_team'] == mapped_team].copy()
+    away_m['goals'] = away_m['away_score']
+
+    all_m = pd.concat([home_m, away_m]).sort_values('date', ascending=False).head(n_matches)
+    friendly_form = all_m['goals'].mean() if len(all_m) > 0 else 0.0
+
+    return in_tournament_override * 0.7 + friendly_form * 0.3
+
+
+# Timovi
 teams = [
     'United States', 'Canada', 'Mexico', 'Panama', 'Haiti', 'Curaçao',
     'Argentina', 'Brazil', 'Uruguay', 'Colombia', 'Ecuador', 'Paraguay',
@@ -410,7 +485,7 @@ teams = [
     'Belgium', 'Croatia', 'Switzerland', 'Austria', 'Norway', 'Scotland',
     'Sweden', 'Turkey', 'Czech Republic', 'Bosnia and Herzegovina',
     'Morocco', 'Senegal', 'Egypt', 'Ivory Coast', 'Algeria', 'South Africa',
-    'Ghana', 'Tunisia', 'Cape Verde',
+    'Ghana', 'Tunisia', 'Cape Verde', 'DR Congo',
     'Japan', 'Iran', 'South Korea', 'Australia', 'Qatar', 'Saudi Arabia',
     'Iraq', 'Uzbekistan', 'Jordan', 'New Zealand'
 ]
@@ -423,42 +498,11 @@ def safe_encode(team, encoder):
 
 stage_map = {
     "Grupna faza": 0,
-    "Osmina finala": 1,
-    "Cetvrtfinale": 2,
-    "Polufinale": 3,
-    "Finale": 4
+    "Osmina finala": 3,
+    "Cetvrtfinale": 4,
+    "Polufinale": 1,
+    "Finale": 2
 }
-
-def get_fifa_rank_diff(home_team, away_team):
-    fifa_ranks = {
-        'Argentina': 1, 'Spain': 2, 'France': 3, 'England': 4, 'Portugal': 5,
-        'Brazil': 6, 'Morocco': 7, 'Netherlands': 8, 'Belgium': 9, 'Germany': 10,
-        'Croatia': 11, 'Colombia': 13, 'Senegal': 14, 'Mexico': 15, 'Uruguay': 16,
-        'United States': 17, 'Japan': 18, 'Switzerland': 19, 'Iran': 20,
-        'South Korea': 21, 'Australia': 22, 'Canada': 23, 'Ecuador': 27,
-        'Ghana': 26, 'Cape Verde': 28, 'Curaçao': 82, 'Haiti': 83,
-        'New Zealand': 85, 'Panama': 45, 'Paraguay': 35, 'Austria': 24,
-        'Norway': 31, 'Scotland': 40, 'Sweden': 28, 'Turkey': 32,
-        'Czech Republic': 38, 'Bosnia and Herzegovina': 55, 'Egypt': 29,
-        'Ivory Coast': 33, 'Algeria': 30, 'South Africa': 60, 'Tunisia': 44,
-        'Qatar': 50, 'Saudi Arabia': 48, 'Iraq': 70, 'Uzbekistan': 75, 'Jordan': 80
-    }
-    home_rank = fifa_ranks.get(home_team, 50)
-    away_rank = fifa_ranks.get(away_team, 50)
-    return home_rank - away_rank
-
-def get_form(team_name, n_matches=3):
-    team_matches = df[(df['home_team_name'] == team_name) | (df['away_team_name'] == team_name)]
-    team_matches = team_matches.sort_values('match_date', ascending=False).head(n_matches)
-    if len(team_matches) == 0:
-        return 1.0
-    goals = []
-    for _, match in team_matches.iterrows():
-        if match['home_team_name'] == team_name:
-            goals.append(match['home_team_score'])
-        else:
-            goals.append(match['away_team_score'])
-    return sum(goals) / len(goals)
 
 def get_head_to_head(home_team, away_team):
     matches = df[((df['home_team_name'] == home_team) & (df['away_team_name'] == away_team)) |
@@ -471,10 +515,8 @@ def get_head_to_head(home_team, away_team):
             home_wins += 1
     return home_wins
 
-# ============================================================
-# UI
-# ============================================================
 
+# UI
 st.markdown("<h1>SP 2026</h1>", unsafe_allow_html=True)
 st.markdown("<p class='subtitle'>Predviđanje ishoda utakmice</p>", unsafe_allow_html=True)
 
@@ -486,6 +528,11 @@ with col2:
 
 stage = st.selectbox("Faza takmičenja", list(stage_map.keys()), index=0)
 
+col3, col4 = st.columns(2)
+with col3:
+    home_goals_input = st.number_input("Golovi domaćina", min_value=0, value=0, step=1)
+with col4:
+    away_goals_input = st.number_input("Golovi gosta", min_value=0, value=0, step=1)
 if st.button("Predvidi ishod", type="primary", use_container_width=True):
     if home == away:
         st.markdown("<p class='error-text'>Domaćin i gost moraju biti različiti!</p>", unsafe_allow_html=True)
@@ -493,32 +540,35 @@ if st.button("Predvidi ishod", type="primary", use_container_width=True):
         with st.spinner("Računam parametre..."):
             head_to_head = get_head_to_head(home, away)
             fifa_diff = get_fifa_rank_diff(home, away)
-            home_form = get_form(home)
-            away_form = get_form(away)
+            home_form = get_form(home, in_tournament_override=home_goals_input)
+            away_form = get_form(away, in_tournament_override=away_goals_input)
             stage_encoded = stage_map[stage]
             home_encoded = safe_encode(home, le_home)
             away_encoded = safe_encode(away, le_away)
-            
+
             st.markdown("---")
             st.markdown("<p class='section-title'>Izračunati parametri utakmice</p>", unsafe_allow_html=True)
-            
+
+            home_form_display = home_form / 0.3 if home_goals_input == 0 else home_form
+            away_form_display = away_form / 0.3 if away_goals_input == 0 else away_form
+
             col_a, col_b, col_c, col_d = st.columns(4)
             with col_a:
                 st.markdown("<p class='metric-label'>Forma domaćina</p>", unsafe_allow_html=True)
-                st.markdown(f"<p class='metric-value'>{home_form:.2f} gol/ut</p>", unsafe_allow_html=True)
+                st.markdown(f"<p class='metric-value'>{home_form_display:.2f} gol/ut</p>", unsafe_allow_html=True)
             with col_b:
                 st.markdown("<p class='metric-label'>Forma gosta</p>", unsafe_allow_html=True)
-                st.markdown(f"<p class='metric-value'>{away_form:.2f} gol/ut</p>", unsafe_allow_html=True)
+                st.markdown(f"<p class='metric-value'>{away_form_display:.2f} gol/ut</p>", unsafe_allow_html=True)
             with col_c:
                 st.markdown("<p class='metric-label'>Head-to-head</p>", unsafe_allow_html=True)
                 st.markdown(f"<p class='metric-value'>{head_to_head} pobeda</p>", unsafe_allow_html=True)
             with col_d:
-                st.markdown("<p class='metric-label'>FIFA rank razlika</p>", unsafe_allow_html=True)
+                st.markdown("<p class='metric-label'>Elo razlika</p>", unsafe_allow_html=True)
                 color = "#ff7675" if fifa_diff < 0 else "#55efc4"
-                st.markdown(f"<p class='metric-value' style='color:{color};'>{fifa_diff}</p>", unsafe_allow_html=True)
-            
+                st.markdown(f"<p class='metric-value' style='color:{color};'>{fifa_diff:.0f}</p>", unsafe_allow_html=True)
+
             st.markdown("---")
-            
+
             input_data = pd.DataFrame([[
                 2026, head_to_head, fifa_diff, home_form, away_form,
                 stage_encoded, home_encoded, away_encoded
@@ -526,24 +576,24 @@ if st.button("Predvidi ishod", type="primary", use_container_width=True):
                 'year', 'head_to_head', 'fifa_rank_diff', 'home_form_total',
                 'away_form_total', 'stage_encoded', 'home_team_encoded', 'away_team_encoded'
             ])
-            
+
             input_scaled = scaler.transform(input_data)
             pred = model.predict(input_scaled)[0]
             result = label_encoder.inverse_transform([pred])[0]
-            
+
             result_map = {
                 'home team win': ('POBEDA DOMAĆINA', 'result-win'),
                 'away team win': ('POBEDA GOSTA', 'result-lose'),
                 'draw': ('NEREŠENO', 'result-draw')
             }
-            
+
             result_text, result_class = result_map[result]
             st.markdown(f"<p class='{result_class}'>{result_text}</p>", unsafe_allow_html=True)
-            
+
             if hasattr(model, 'predict_proba'):
                 probs = model.predict_proba(input_scaled)[0]
                 st.markdown("<p class='section-title'>Verovatnoće ishoda</p>", unsafe_allow_html=True)
-                
+
                 col1p, col2p, col3p = st.columns(3)
                 with col1p:
                     st.markdown("<p class='prob-label'>Pobeda domaćina</p>", unsafe_allow_html=True)
