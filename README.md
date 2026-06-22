@@ -43,24 +43,28 @@ streamlit run app/streamlit_app.py
 ```
 SPPROJEKAT/
 ├── app/
-│   ├── streamlit_app.py
-│   └── pitch.jpg
+│   ├── streamlit_app.py          
+│   └── pitch.jpg                
+│
 ├── data/
-│   ├── raw/
-│   │   ├── matches.csv
-│   │   └── eloratings.csv
-│   └── processed/
-│       └── df_final.csv
-├── models/
-│   ├── final_model.pkl
-│   ├── scaler.pkl
-│   ├── label_encoder.pkl
-│   ├── le_home.pkl
-│   └── le_away.pkl
-├── projekat.ipynb
-├── requirements.txt
-├── README.md
-└── .gitignore
+│   ├── raw/                   
+│   │   ├── matches.csv          
+│   │   └── eloratings.csv        
+│   └── processed/             
+│       └── df_final.csv       
+│
+├── models/                       
+│   ├── final_model.pkl           
+│   ├── scaler.pkl                
+│   ├── label_encoder.pkl         
+│   ├── le_home.pkl              
+│   └── le_away.pkl               
+│
+├── projekat.ipynb                
+├── Dokumentacija projekat.pdf    
+├── requirements.txt              
+├── README.md                     
+└── .gitignore                   
 ```
 
 ## Tehnologije
