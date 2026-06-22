@@ -20,6 +20,15 @@ Za finalni model izabran je optimizovani Random Forest zbog
 najuravnoteženijih performansi između sve tri klase
 (pobeda domaćina, nerešeno i pobeda gosta).
 
+| Class | Precision | Recall | F1-Score | Support |
+|-------|-----------|--------|----------|---------|
+| away_win | 0.54 | 0.57 | 0.55 | 67 |
+| draw | 0.35 | 0.40 | 0.38 | 42 |
+| home_win | 0.74 | 0.70 | 0.72 | 141 |
+| **Accuracy** | | | **0.61** | **250** |
+| **Macro avg** | **0.55** | **0.56** | **0.55** | **250** |
+| **Weighted avg** | **0.62** | **0.61** | **0.62** | **250** |
+
 Iako u osnovi Logistic Regression ostvaruje nešto veću
 ukupnu tačnost, Random Forest značajno bolje
 prepoznaje nerešene rezultate.
